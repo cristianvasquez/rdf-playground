@@ -1,0 +1,36 @@
+{
+  "name": "rdf-playground",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "scripts": {
+    "serve": "vue-cli-service serve --port 3000",
+    "build": "vue-cli-service build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cristianvasquez/rdf-playground.git"
+  },
+  "author": "Cristian Vasquez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cristianvasquez/rdf-playground/issues"
+  },
+  "dependencies": {
+    "clownface": "github:cristianvasquez/clownface",
+    "d3": "^7.2.1",
+    "d3-selection": "^3.0.0",
+    "rdf-ext": "https://git@github.com/rdf-ext/rdf-ext.git#next",
+    "vue": "^3.2.24",
+    "vue-router": "^4.0.12"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "@vue/compiler-sfc": "^3.0.0",
+    "d3-drag": "^3.0.0",
+    "d3-force": "^3.0.0",
+    "d3-zoom": "^3.0.0"
+  },
+  "homepage": "https://github.com/cristianvasquez/rdf-playground#readme"
+}
