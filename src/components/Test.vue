@@ -55,6 +55,7 @@ function tick () {
   graph.selectAll('path').attr('d', link)
   graph.selectAll('circle').attr('transform', transform)
   graph.selectAll('text').attr('transform', transform)
+  // graph.selectAll('link-text').attr('translate', transform)
 }
 
 function updateData (nodes, links) {
@@ -65,6 +66,7 @@ function updateData (nodes, links) {
   graph.selectAll('path')
       .data(links)
       .exit().remove()
+
 
   graph.selectAll('path')
       .data(links)
@@ -94,12 +96,20 @@ function updateData (nodes, links) {
   graph.selectAll('text')
       .data(nodes)
       .enter().append('text')
-
       .attr('class', 'node-text')
       .attr('x', 0)
       .attr('y', '.31em')
       .attr('text-anchor', 'middle')
       .text(d => d.name)
+
+
+  // graph.selectAll('link-text').remove()
+  // graph.selectAll('link-text')
+  //     .data(links)
+  //     .enter().append('text')
+  //     .attr('class', 'link-text')
+  //     .text(d => d.type)
+
 
   simulation.alpha(1).restart()
 }
@@ -290,6 +300,14 @@ onMounted(() => {
 
 <style>
 .node-text {
+  pointer-events: none;
+  font:  10px serif;
+  fill: #121010;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+}
+
+.link-text {
+  pointer-events: none;
   font:  10px serif;
   fill: #121010;
   text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;

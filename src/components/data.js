@@ -10,24 +10,24 @@ export const initForceProperties = {
     distanceMax: 2000
   },
   collide: {
-    enabled: true,
+    enabled: false,
     strength: .7,
     iterations: 1,
     radius: 35
   },
   forceX: {
     enabled: false,
-    strength: .1,
+    strength: 1,
     x: .5
   },
   forceY: {
     enabled: false,
-    strength: .35,
+    strength: 1,
     y: .5
   },
   link: {
     enabled: true,
-    distance: 100,
+    distance: 200,
     iterations: 1
   }
 }
