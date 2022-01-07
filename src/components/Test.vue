@@ -1,5 +1,8 @@
 <script setup>
-import { computed, watchEffect, onMounted, ref, watch } from 'vue'
+// Based on
+// https://bl.ocks.org/agnjunio/fd86583e176ecd94d37f3d2de3a56814
+
+import { computed, watchEffect, onMounted, ref, watch, onBeforeMount } from 'vue'
 import { select } from 'd3-selection'
 import { drag } from 'd3-drag'
 import {
@@ -14,15 +17,15 @@ import { initData, initForceProperties } from './data'
 const svgRef = ref(null)
 
 let simulation = null
-let svg = null
 let graph = null
 let grid = null
 let thisZoom = null
+let svg = null
 
 const data = ref(initData)
 const forceProperties = ref(initForceProperties)
-const widthPx = ref(1024)
-const heightPx = ref(768)
+const height = ref(768)
+const width = ref(1024)
 const gridSize = ref(100)
 
 watch(data, (currentValue, oldValue) => {
@@ -33,12 +36,22 @@ watch(forceProperties, (currentValue, oldValue) => {
 })
 
 function tick () {
+
+  // If no data is passed to the Vue component, do nothing
+  if (!data.value) { return }
   const transform = d => {
     return 'translate(' + d.x + ',' + d.y + ')'
   }
+
   const link = d => {
-    return 'M' + d.source.x + ',' + d.source.y + ' L' + d.target.x + ',' + d.target.y
+    // Self-link support
+    if (d.source.index === d.target.index) {
+      return `M${d.source.x - 1},${d.source.y - 1}A30,30 -10,1,0 ${d.target.x + 1},${d.target.y + 1}`
+    } else {
+      return 'M' + d.source.x + ',' + d.source.y + ' L' + d.target.x + ',' + d.target.y
+    }
   }
+
   graph.selectAll('path').attr('d', link)
   graph.selectAll('circle').attr('transform', transform)
   graph.selectAll('text').attr('transform', transform)
@@ -48,14 +61,22 @@ function updateData (nodes, links) {
   simulation.nodes(nodes)
   simulation.force('link').links(links)
 
+  // Links should only exit if not needed anymore
   graph.selectAll('path')
-      .data(simulation.force('link').links())
-      .enter().append('path')
-      .attr('class', d => 'link ' + d.type)
+      .data(links)
       .exit().remove()
 
-  graph.selectAll('circle')
-      .data(simulation.nodes())
+  graph.selectAll('path')
+      .data(links)
+      .enter()
+      .append('path')
+      .attr('marker-end', 'url(#triangle)')
+      .attr('class', d => 'link ' + d.type)
+
+  // Nodes should always be redrawn to avoid lines above them
+  graph.selectAll('nodes').remove()
+  graph.selectAll('nodes')
+      .data(nodes)
       .enter().append('circle')
       .attr('r', 30)
       .attr('class', d => d.class)
@@ -63,11 +84,18 @@ function updateData (nodes, links) {
           .on('start', nodeDragStarted)
           .on('drag', nodeDragged)
           .on('end', nodeDragEnded))
-      .exit().remove()
+      .on('mouseover', nodeMouseOver)
+      .on('mouseout', nodeMouseOut)
+      .on('click', nodeClick)
 
+  //       <text x="1000" y="1000" class="Rrrrr">Grumpy!</text>
+
+  graph.selectAll('text').remove()
   graph.selectAll('text')
-      .data(simulation.nodes())
+      .data(nodes)
       .enter().append('text')
+
+      .attr('class', 'node-text')
       .attr('x', 0)
       .attr('y', '.31em')
       .attr('text-anchor', 'middle')
@@ -116,11 +144,64 @@ function nodeDragEnded (event, d) {
   d.fy = null
 }
 
+function nodeMouseOver (event, d) {
+  const circle = graph.selectAll('circle')
+  const path = graph.selectAll('path')
+  const text = graph.selectAll('text')
+
+  const related = []
+  const relatedLinks = []
+  related.push(d)
+  simulation.force('link').links().forEach((link) => {
+    if (link.source === d || link.target === d) {
+      relatedLinks.push(link)
+      if (related.indexOf(link.source) === -1) { related.push(link.source) }
+      if (related.indexOf(link.target) === -1) { related.push(link.target) }
+    }
+  })
+  circle.classed('faded', true)
+  circle
+      .filter((df) => related.indexOf(df) > -1)
+      .classed('highlight', true)
+  path.classed('faded', true)
+  path
+      .filter((df) => df.source === d || df.target === d)
+      .classed('highlight', true)
+  text.classed('faded', true)
+  text
+      .filter((df) => related.indexOf(df) > -1)
+      .classed('highlight', true)
+  // This ensures that tick is called so the node count is updated
+  simulation.alphaTarget(0.0001).restart()
+}
+
+function nodeMouseOut (event, d) {
+  const circle = graph.selectAll('circle')
+  const path = graph.selectAll('path')
+  const text = graph.selectAll('text')
+
+  circle.classed('faded', false)
+  circle.classed('highlight', false)
+  path.classed('faded', false)
+  path.classed('highlight', false)
+  text.classed('faded', false)
+  text.classed('highlight', false)
+  // This ensures that tick is called so the node count is updated
+  simulation.restart()
+}
+
+function nodeClick (event, d) {
+  const circle = graph.selectAll('circle')
+  circle.classed('selected', false)
+  circle.filter((td) => td === d)
+      .classed('selected', true)
+}
+
 function updateForces (fp) {
 
   simulation.force('center')
-      .x(widthPx.value * fp.center.x)
-      .y(heightPx.value * fp.center.y)
+      .x(width.value * fp.center.x)
+      .y(height.value * fp.center.y)
   simulation.force('charge')
       .strength(fp.charge.strength * fp.charge.enabled)
       .distanceMin(fp.charge.distanceMin)
@@ -131,10 +212,10 @@ function updateForces (fp) {
       .iterations(fp.collide.iterations)
   simulation.force('forceX')
       .strength(fp.forceX.strength * fp.forceX.enabled)
-      .x(widthPx.value * fp.forceX.x)
+      .x(width.value * fp.forceX.x)
   simulation.force('forceY')
       .strength(fp.forceY.strength * fp.forceY.enabled)
-      .y(heightPx.value * fp.forceY.y)
+      .y(height.value * fp.forceY.y)
   simulation.force('link')
       .distance(fp.link.distance)
       .iterations(fp.link.iterations)
@@ -144,24 +225,9 @@ function updateForces (fp) {
   simulation.alpha(1).restart()
 }
 
-onMounted(() => {
-  svg = select(svgRef.value)
-
-  thisZoom = zoom()
-      .scaleExtent([1 / 4, 4])
-      .on('zoom', zoomed)
-  svg.call(thisZoom)
-
-  grid = svg.append('rect')
-      .attr('x', '-10%')
-      .attr('y', '-10%')
-      .attr('width', '400%')
-      .attr('height', '400%')
-      .attr('fill', 'url(#grid)')
-  graph = svg.append('g')
-
-  widthPx.value = window.innerWidth
-  heightPx.value = window.innerHeight
+onBeforeMount(() => {
+  width.value = window.innerWidth
+  height.value = window.innerHeight
 
   simulation = forceSimulation()
       .force('link', forceLink())
@@ -173,18 +239,48 @@ onMounted(() => {
       .on('tick', tick)
 
   updateForces(forceProperties.value)
-  updateData(data.value.nodes, data.value.links)
+})
 
+onMounted(() => {
+  svg = select(svgRef.value)
+
+  // Add zoom and panning triggers
+  thisZoom = zoom()
+      .scaleExtent([1 / 4, 4])
+      .on('zoom', zoomed)
+  svg.call(thisZoom)
+
+  // A background grid to help user experience
+  // The width and height depends on the minimum scale extent and
+  // the + 10% and negative index to create an infinite grid feel
+  // The precedence of this element is important since you'll have
+  // click events on the elements above the grid
+  grid = svg.append('rect')
+      .attr('x', '-10%')
+      .attr('y', '-10%')
+      .attr('width', '410%')
+      .attr('height', '410%')
+      .attr('fill', 'url(#grid)')
+
+  graph = svg.append('g')
+
+  updateData(data.value.nodes, data.value.links)
 })
 
 </script>
 
 <template>
-  <div :style="{ width: widthPx + 'px', height: heightPx + 'px', border: '1px solid red' }">
-    <svg ref="svgRef" height="100%" width="100%">
-      <pattern id="innerGrid" :height="widthPx" :width="heightPx" patternUnits="userSpaceOnUse">
-        <rect fill="none" height="100%" stroke="#CCCCCC7A" stroke-width="0.5" width="100%"/>
-      </pattern>
+  <div :style="{ width: width + 'px', height: height + 'px', border: '1px solid black' }">
+    <svg ref="svgRef">
+      <defs>
+        <marker id="triangle" markerHeight="8"
+                markerUnits="strokeWidth" markerWidth="8"
+                orient="auto"
+                refX="32" refY="5"
+                viewBox="0 0 10 10">
+          <path d="M 0 0 L 7 5 L 0 10 z" fill="#000000"/>
+        </marker>
+      </defs>
       <pattern id="grid" :height="gridSize" :width="gridSize" patternUnits="userSpaceOnUse">
         <rect fill="url(#innerGrid)" height="100%" stroke="#CCCCCC7A" stroke-width="1.5" width="100%"/>
       </pattern>
@@ -193,6 +289,21 @@ onMounted(() => {
 </template>
 
 <style>
+.node-text {
+  font:  10px serif;
+  fill: #121010;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+}
+
+.faded {
+  opacity: 0.1;
+  transition: 0.3s opacity;
+}
+
+.highlight {
+  opacity: 1;
+}
+
 path.link {
   fill: none;
   stroke: #666;
@@ -229,9 +340,21 @@ circle.init {
   stroke: #001900;
 }
 
-text {
-  font: 10px sans-serif;
-  pointer-events: none;
-  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+circle.selected {
+  stroke: #ff6666FF !important;
+  stroke-width: 3px;
+  animation: selected 2s infinite alternate ease-in-out;
 }
+
+@keyframes selected {
+  from {
+    stroke-width: 5px;
+    r: 26;
+  }
+  to {
+    stroke-width: 1px;
+    r: 30;
+  }
+}
+
 </style>
