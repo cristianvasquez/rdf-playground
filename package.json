@@ -17,10 +17,10 @@
     "url": "https://github.com/cristianvasquez/rdf-playground/issues"
   },
   "dependencies": {
-    "clownface": "github:cristianvasquez/clownface",
+    "clownface": "^2.0.3",
     "d3": "^7.2.1",
     "d3-selection": "^3.0.0",
-    "rdf-ext": "https://git@github.com/rdf-ext/rdf-ext.git#next",
+    "rdf-ext": "^2.5.2",
     "vue": "^3.2.24",
     "vue-router": "^4.0.12"
   },
